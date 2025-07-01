@@ -131,6 +131,7 @@ class Bomb(pg.sprite.Sprite):
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
+        self.state = "active"
 
     def update(self):
         """
@@ -167,7 +168,7 @@ class Beam(pg.sprite.Sprite):
         ビームを速度ベクトルself.vx, self.vyに基づき移動させる
         引数 screen：画面Surface
         """
-        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        self.rect.move_ip(self.speed * self.vx, self.speed * self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
 
@@ -283,6 +284,26 @@ class   Gravity(pg.sprite.Sprite):
     
 
 
+class EMP:
+    def __init__(self, emy_group: pg.sprite.Group, bomb_group: pg.sprite.Group, screen: pg.Surface):
+        self.screen = screen
+        for emy in emy_group:
+            emy.interval = math.inf
+            emy.image = pg.transform.laplacian(emy.image)
+
+        for bomb in bomb_group:
+            bomb.speed *= 0.5
+            bomb.state = "inactive"
+        self.image = pg.Surface((WIDTH, HEIGHT))
+        pg.draw.rect(self.image,(225,225,0),(0, 0, WIDTH, HEIGHT))  
+        self.image.set_alpha(100)                    # 半透明
+        self.screen.blit(self.image, (0, 0))         # 貼り付け
+        pg.display.update()                       # 表示
+        pg.time.wait(50)                          # 0.05秒待機
+
+
+
+    
 class Shield(pg.sprite.Sprite):
     """
     こうかとんの前方に防御壁を生成するクラス
@@ -331,6 +352,13 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
+
+            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value >= 20:
+                score.value -= 20
+                EMP(emys, bombs, screen)
+
             if event.type == pg.KEYDOWN:  
                 if event.key == pg.K_SPACE:
                     beams.add(Beam(bird))
@@ -368,6 +396,7 @@ def main():
             score.value += 1  # 1点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+           if bomb.state == "active":     
             bird.change_img(8, screen)  # こうかとん悲しみエフェクト
             score.update(screen)
             pg.display.update()
