@@ -232,7 +232,7 @@ class Score:
     def __init__(self):
         self.font = pg.font.Font(None, 50)
         self.color = (0, 0, 255)
-        self.value = 0
+        self.value = 1000
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         self.rect = self.image.get_rect()
         self.rect.center = 100, HEIGHT-50
@@ -240,6 +240,25 @@ class Score:
     def update(self, screen: pg.Surface):
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
+    
+
+class   Gravity(pg.sprite.Sprite):
+    """
+    重力場に関するクラス
+    """
+    def __init__(self,life :int):
+        super().__init__()
+        self.image=pg.Surface((WIDTH,HEIGHT))
+        self.rect = self.image.get_rect()
+        pg.draw.rect(self.image,(0,0,0),(0,0,650,1100))
+        self.image.set_alpha(180)
+        self.life = life
+
+    def update(self):
+        self.life-=1
+        if self.life<0:
+            self.kill()
+    
 
 
 def main():
@@ -253,6 +272,8 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    gravitys = pg.sprite.Group()
+
 
     tmr = 0
     clock = pg.time.Clock()
@@ -263,6 +284,10 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type ==pg.KEYDOWN and event.key == pg.K_RETURN:
+                if score.value>200:
+                    gravitys.add(Gravity(400))
+                    score.value-=200
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -288,6 +313,15 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+        for bomb in pg.sprite.groupcollide(bombs, gravitys, True, False).keys():  # ビームと衝突した爆弾リスト
+            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+            score.value += 1  # 1点アップ
+            
+        for emy in pg.sprite.groupcollide(emys, gravitys, True, False).keys():  # ビームと衝突した敵機リスト
+            exps.add(Explosion(emy, 100))  # 爆発エフェクト
+            score.value += 10  # 10点アップ
+            bird.change_img(6, screen)
+
 
         bird.update(key_lst, screen)
         beams.update()
@@ -299,6 +333,9 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+        gravitys.update()
+        gravitys.draw(screen)
+
         pg.display.update()
         tmr += 1
         clock.tick(50)
