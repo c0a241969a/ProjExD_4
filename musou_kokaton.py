@@ -146,14 +146,14 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0=0):  #angle0:回転角度
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
         """
         super().__init__()
         self.vx, self.vy = bird.dire
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        angle = math.degrees(math.atan2(-self.vy, self.vx)) + angle0  #回転角度を加算
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
@@ -170,6 +170,23 @@ class Beam(pg.sprite.Sprite):
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
+
+
+class NeoBeam(pg.sprite.Sprite):
+    """
+    一度に複数方向へビームを発射するためのクラス
+    """
+    def __init__(self, bird: Bird, num): #num:ビーム数
+        super().__init__()
+        self.bird = bird
+        self.num = num
+
+    def gen_beams(self):  #指定ビーム数の分だけBeamインスタンスを生成し,リストにappendする 
+        beams = []  #ビームのリスト
+        for angle in range(-50, 51, 100 // (self.num-1)):  #±50をビームの数に等分(区切り数のため-1)
+            beams.append(Beam(self.bird, angle))
+        return beams  #リストを返す
+
 
 
 class Explosion(pg.sprite.Sprite):
@@ -287,13 +304,19 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
-            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN:  
+                if event.key == pg.K_SPACE:
+                    beams.add(Beam(bird))
+                    if key_lst[pg.K_LSHIFT]:  #もし左シフトも押されていたら
+                        neobeams = NeoBeam(bird, 3)  #こうかとん,ビーム数
+                        for beam in neobeams.gen_beams():  #戻り値のリストをBeamグループに追加
+                            beams.add(beam)
             if event.type ==pg.KEYDOWN and event.key == pg.K_RETURN:
                 if score.value>200:
                     gravitys.add(Gravity(400))
                     score.value-=200
         screen.blit(bg_img, [0, 0])
+
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
