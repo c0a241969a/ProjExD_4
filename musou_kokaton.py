@@ -266,6 +266,32 @@ class   Gravity(pg.sprite.Sprite):
     
 
 
+class Shield(pg.sprite.Sprite):
+    """
+    こうかとんの前方に防御壁を生成するクラス
+    指定された時間（life）が経過したら自動で消える
+    """
+    def __init__(self, bird: Bird, life: int):
+        super().__init__()
+        w, h = 20, bird.rect.height * 2  # 横幅20、高さはこうかとんの2倍
+        self.image = pg.Surface((w, h), pg.SRCALPHA)  # 矩形描画
+        pg.draw.rect(self.image, (0, 0, 255), (0, 0, w, h))
+        vx, vy = bird.dire  # 角度を取得して回転
+        angle = math.degrees(math.atan2(-vy, vx))
+        self.image = pg.transform.rotozoom(self.image, angle, 1.0)
+        self.rect = self.image.get_rect()  # こうかとんの前方に配置
+        offset = bird.rect.width  # 1体分ずらす
+        self.rect.centerx = bird.rect.centerx + offset * vx
+        self.rect.centery = bird.rect.centery + offset * vy
+        self.life = life  # 防御壁のライフ
+
+    # Shieldクラスのupdateメソッドでlifeを1減算し，0未満になったらkillする
+    def update(self):
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -277,6 +303,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    shields = pg.sprite.Group()
     gravitys = pg.sprite.Group()
 
 
@@ -293,6 +320,11 @@ def main():
                 if score.value>200:
                     gravitys.add(Gravity(400))
                     score.value-=200
+            
+            # 防御壁発動条件：sキーを押す、スコアが50点以上、既に防御壁が存在しない
+            if key_lst[pg.K_s] and score.value >= 50 and len(shields) == 0:
+                score.value -= 50
+                shields.add(Shield(bird, 400))
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -319,13 +351,19 @@ def main():
             time.sleep(2)
             return
         for bomb in pg.sprite.groupcollide(bombs, gravitys, True, False).keys():  # ビームと衝突した爆弾リスト
-            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
-            score.value += 1  # 1点アップ
+                exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+                score.value += 1  # 1点アップ
             
         for emy in pg.sprite.groupcollide(emys, gravitys, True, False).keys():  # ビームと衝突した敵機リスト
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 10  # 10点アップ
             bird.change_img(6, screen)
+            
+        # 防御壁に爆弾が当たったとき
+        collided = pg.sprite.groupcollide(bombs, shields, True, False)
+        for bomb in collided:
+            exps.add(Explosion(bomb, 50))
+            score.value += 1  # スコアを1点加算
 
 
         bird.update(key_lst, screen)
@@ -340,11 +378,14 @@ def main():
         score.update(screen)
         gravitys.update()
         gravitys.draw(screen)
-
+        shields.update()
+        shields.draw(screen)
+        
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
+        
+        
 
 if __name__ == "__main__":
     pg.init()
